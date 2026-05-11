@@ -1,0 +1,17 @@
+import matplotlib.pyplot as plt  # 导入 Matplotlib 库，用于绘制统计图表
+import matplotlib  # 导入 Matplotlib 配置模块
+import pandas as pd  # 导入 Pandas 库，用于数据读取和处理
+import numpy as np  # 导入 NumPy 库，用于数值计算
+
+# 设置中文字体，防止中文乱码
+plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']  # 使用黑体或系统默认字体
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+
+# 读取汇总数据表
+df_summary = pd.read_csv('/mnt/agents/output/summary_table.csv')
+
+# 定义颜色方案（高对比度，确保投影清晰）
+colors = {'3人': '#1f77b4', '5人': '#ff7f0e', '8人': '#2ca02c', '10人': '#d62728'}  # 蓝、橙、绿、红
+scene_order = ['3人', '5人', '8人', '10人']  # 场景顺序
+
+print("汇总数据读取完成，开始生成图表...")

@@ -1,0 +1,76 @@
+import numpy as np  # 导入 NumPy 库，用于数值计算和随机数生成
+import pandas as pd  # 导入 Pandas 库，用于数据处理和 DataFrame 操作
+
+# 设置随机种子以保证结果可复现
+np.random.seed(42)
+
+# 定义模拟参数
+people_counts = [3, 5, 8, 10]  # 总人数 n 分别取 3、5、8、10
+total_amount = 100.00  # 红包总金额固定为 100.00 元
+n_simulations = 50000  # 每组场景模拟 50,000 次
+
+# 初始化存储所有模拟结果的列表
+all_results = []
+
+# 遍历每个场景（不同人数）
+for n in people_counts:
+    scene_id = f"{n}人"  # 构造场景标识，如 "3人"、"5人" 等
+    print(f"正在模拟场景: {scene_id}...")  # 打印当前模拟进度
+    
+    # 初始化该场景的异常计数器
+    abnormal_count = 0
+    
+    # 进行 50,000 次模拟
+    for sim_no in range(1, n_simulations + 1):
+        remaining = total_amount  # 初始化剩余金额为总金额 100.00 元
+        remaining_people = n  # 初始化剩余人数为当前场景总人数
+        
+        # 存储本次模拟每个人的金额
+        amounts = []
+        
+        # 依次给前 n-1 个人分配红包
+        for i in range(1, n):  # i 从 1 到 n-1
+            # 计算当前金额上限：剩余金额均值的两倍，且不能超过剩余金额
+            upper = min(remaining, 2 * remaining / remaining_people)
+            # 从区间 [0.01, upper] 内均匀随机抽取一个金额
+            amount = np.random.uniform(0.01, upper)
+            # 保留两位小数（分位）
+            amount = round(amount, 2)
+            # 将金额添加到列表
+            amounts.append(amount)
+            # 更新剩余金额
+            remaining -= amount
+            # 更新剩余人数
+            remaining_people -= 1
+        
+        # 最后一个人直接拿走剩余金额
+        last_amount = round(remaining, 2)
+        amounts.append(last_amount)
+        
+        # 检查所有人金额之和是否等于 100.00 元（允许 ±0.01 元浮点误差）
+        total_check = sum(amounts)
+        if abs(total_check - total_amount) > 0.01:
+            abnormal_count += 1  # 若超出误差范围，标记为异常
+        
+        # 将本次模拟结果添加到总结果列表
+        for position, amount in enumerate(amounts, start=1):
+            all_results.append({
+                'scene_id': scene_id,    # 场景标识
+                'sim_no': sim_no,        # 模拟序号
+                'position': position,    # 抢位 1~n
+                'amount': amount         # 分配到的金额
+            })
+    
+    # 打印该场景的异常模拟次数
+    print(f"场景 {scene_id} 模拟完成，异常次数: {abnormal_count}")
+
+# 将所有结果转换为 DataFrame
+df_raw = pd.DataFrame(all_results)
+
+# 保存为 CSV 文件
+df_raw.to_csv('/mnt/agents/output/red_packet_raw.csv', index=False, encoding='utf-8-sig')
+
+# 打印数据基本信息
+print(f"\n原始数据已保存，共 {len(df_raw)} 行记录")
+print(f"数据预览:")
+print(df_raw.head(20))

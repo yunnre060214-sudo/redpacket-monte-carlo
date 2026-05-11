@@ -1,0 +1,71 @@
+import pandas as pd  # 导入 Pandas 库，用于数据处理和分析
+import numpy as np  # 导入 NumPy 库，用于数值计算
+
+# 读取上一步生成的原始数据 CSV 文件
+df_raw = pd.read_csv('/mnt/agents/output/red_packet_raw.csv')
+
+print(f"原始数据共 {len(df_raw)} 行")  # 打印原始数据的行数
+print(f"场景列表: {df_raw['scene_id'].unique()}")  # 打印所有场景标识
+
+# ===== 异常检查 1：检查是否存在金额小于 0.01 元的记录 =====
+print("\n===== 异常检查 =====")
+invalid_amount = df_raw[df_raw['amount'] < 0.01]  # 筛选金额小于 0.01 的记录
+print(f"金额 < 0.01 元的记录数: {len(invalid_amount)}")  # 打印异常记录数量
+
+# ===== 异常检查 2：检查每场景每模拟次的金额总和偏离 100.00 元超过 0.05 元的记录数 =====
+# 按 scene_id 和 sim_no 分组，计算每组的总金额
+group_sums = df_raw.groupby(['scene_id', 'sim_no'])['amount'].sum()
+# 筛选总金额偏离 100.00 元超过 0.05 元的记录
+deviation_records = group_sums[abs(group_sums - 100.00) > 0.05]
+print(f"金额总和偏离 100.00 元超过 0.05 元的模拟次数: {len(deviation_records)}")  # 打印异常模拟次数
+
+# ===== 计算手气最佳频率 =====
+# 首先，找出每次模拟（同 scene_id 同 sim_no）中的最大金额
+# 按 scene_id 和 sim_no 分组，计算每组的最高金额
+max_amount_per_sim = df_raw.groupby(['scene_id', 'sim_no'])['amount'].transform('max')
+# 判断每条记录是否为该次模拟的手气最佳
+df_raw['is_best'] = (df_raw['amount'] == max_amount_per_sim).astype(int)  # 是则为 1，否则为 0
+
+# ===== 按 scene_id 和 position 分组统计 =====
+# 初始化存储汇总结果的列表
+summary_list = []
+
+# 按 scene_id 和 position 分组进行统计
+groups = df_raw.groupby(['scene_id', 'position'])
+
+for (scene_id, position), group in groups:  # 遍历每个分组
+    # 计算该组的基础统计量
+    mean_val = group['amount'].mean()  # 计算均值
+    var_val = group['amount'].var()    # 计算方差
+    std_val = group['amount'].std()    # 计算标准差
+    median_val = group['amount'].median()  # 计算中位数
+    max_val = group['amount'].max()    # 计算最大值
+    min_val = group['amount'].min()    # 计算最小值
+    
+    # 计算手气最佳频率：该位置拿到手气最佳的次数 / 该场景总模拟次数
+    best_count = group['is_best'].sum()  # 该位置拿到手气最佳的总次数
+    total_sim = df_raw[df_raw['scene_id'] == scene_id]['sim_no'].nunique()  # 该场景的总模拟次数
+    best_freq = best_count / total_sim   # 计算手气最佳频率
+    
+    # 将统计结果添加到列表
+    summary_list.append({
+        '场景': scene_id,           # 场景标识
+        '抢位': position,           # 抢位 1~n
+        '均值': round(mean_val, 4), # 均值，保留4位小数
+        '方差': round(var_val, 4),  # 方差，保留4位小数
+        '标准差': round(std_val, 4), # 标准差，保留4位小数
+        '中位数': round(median_val, 4), # 中位数，保留4位小数
+        '最大值': round(max_val, 2),    # 最大值，保留2位小数
+        '最小值': round(min_val, 2),    # 最小值，保留2位小数
+        '手气最佳频率': round(best_freq, 6)  # 手气最佳频率，保留6位小数
+    })
+
+# 将汇总结果转换为 DataFrame
+df_summary = pd.DataFrame(summary_list)
+
+# 保存汇总统计表为 CSV 文件
+df_summary.to_csv('/mnt/agents/output/summary_table.csv', index=False, encoding='utf-8-sig')
+
+print(f"\n汇总统计表已保存，共 {len(df_summary)} 行")  # 打印汇总表行数
+print("\n汇总统计表预览:")
+print(df_summary.head(20))  # 打印前20行预览
